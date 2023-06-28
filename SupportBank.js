@@ -2,6 +2,7 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 var fs = require("fs");
 var prompt = require("prompt-sync")();
+var csv = require('csv-parser');
 var Account_1 = require("./Account");
 var Transaction_1 = require("./Transaction");
 var log4js = require("log4js");
@@ -18,19 +19,11 @@ log4js.configure({
 var logger = log4js.getLogger("SupportBank.ts");
 logger.debug("\n\n\nDebugging SupportBank");
 function supportBank() {
-    var transactions;
-    fs.readFile('DoggyTransactions2014.csv', 'utf8', function (err, data) {
-        if (err) {
-            console.error(err);
-            logger.fatal("Error reading file!");
-            return;
-        }
-        transactions = data.split("\n");
-        transactions.shift(); //Removes the headers
-        for (var x = 0; x < transactions.length; x++) {
-            transactions[x] = transactions[x].replace("\r", "");
-            transactions[x] = transactions[x].split(",");
-        }
+    var transactions = [];
+    fs.createReadStream('DoggyTransactions2014.csv')
+        .pipe(csv())
+        .on('data', function (data) { return transactions.push(data); })
+        .on('end', function () {
         createAccounts(transactions);
         createTransactions(transactions);
         fs.readFile('Transactions2013.json', 'utf-8', function (err, data) {
@@ -41,28 +34,23 @@ function supportBank() {
                 return;
             }
             var object = JSON.parse(data);
-            createAccounts(object);
+            // createAccounts(object)
             // main();
         });
     });
+    console.log(transactions);
 }
 function createAccounts(transactions) {
-    if (!Array.isArray(transactions)) {
-        console.log("Its a JSON");
-    }
-    else {
-        console.log("Its a Array");
-        var names = transactions.map(function (line) {
-            return [line[1], line[2]];
-        });
-        for (var i = 0; i < names.length; i++) {
-            for (var x = 0; x < names[i].length; x++) {
-                logger.debug("Creating account with " + names[i][x]);
-                if (!findAccount(names[i][x]))
-                    Accounts.push(new Account_1.default(names[i][x]));
-                else {
-                    logger.debug("Account " + names[i][x] + " already exists!");
-                }
+    var names = transactions.map(function (line) {
+        return [line.From, line.To];
+    });
+    for (var i = 0; i < names.length; i++) {
+        for (var x = 0; x < names[i].length; x++) {
+            logger.debug("Creating account with " + names[i][x]);
+            if (!findAccount(names[i][x]))
+                Accounts.push(new Account_1.default(names[i][x]));
+            else {
+                logger.debug("Account " + names[i][x] + " already exists!");
             }
         }
     }
@@ -78,26 +66,26 @@ function findAccount(name) {
 function createTransactions(transactions) {
     transactions.map(function (transaction) {
         try {
-            if (transaction.length != 5)
+            if (Object.keys(transaction).length != 5)
                 throw "Incorrect Number of Inputs";
-            var sender = findAccount(transaction[1]);
-            var recipient = findAccount(transaction[2]);
-            if (isNaN(Number(transaction[4])))
+            var sender = findAccount(transaction.From);
+            var recipient = findAccount(transaction.To);
+            if (isNaN(Number(transaction.Amount)))
                 throw "Invalid Price Entered";
-            var price = Number(transaction[4]);
+            var price = Number(transaction.amount);
             if (!sender || !recipient) {
                 console.log("Invalid Accounts");
-                logger.warn("Transaction made with non-existing accounts. Accounts: " + transaction[1].concat(transaction[2]));
+                logger.warn("Transaction made with non-existing accounts. Accounts: " + transaction.From.concat(transaction.To));
             }
             else {
                 sender.changeBalance((price * -1));
                 recipient.changeBalance(price);
-                logger.debug("Transaction Created with info: " + transaction);
-                Transactions.push(new Transaction_1.default(transaction[0], sender, recipient, transaction[3], price));
+                logger.debug("Transaction Created with info: " + JSON.stringify(transaction));
+                Transactions.push(new Transaction_1.default(transaction.Date, sender, recipient, transaction.Narrative, price));
             }
         }
         catch (error) {
-            logger.error("Transaction failed with error " + error);
+            logger.error("Transaction failed with error " + error + ": " + transaction.Amount);
         }
     });
 }

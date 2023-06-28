@@ -1,8 +1,8 @@
 import * as fs from "fs";
 const prompt = require("prompt-sync")();
+const csv = require('csv-parser');
 import Account from "./Account"
 import Transaction from "./Transaction"
-import {json} from "stream/consumers";
 const log4js = require("log4js");
 const Accounts : Account[] = [];
 const Transactions : Transaction[] = []
@@ -21,51 +21,40 @@ logger.debug("\n\n\nDebugging SupportBank")
 
 function supportBank() {
 
-    let transactions;
-    fs.readFile('DoggyTransactions2014.csv', 'utf8', (err, data) => {
-        if (err) {
-            console.error(err);
-            logger.fatal("Error reading file!")
-            return;
-        }
+    const transactions=[];
+    fs.createReadStream('DoggyTransactions2014.csv')
+        .pipe(csv())
+        .on('data', (data) => transactions.push(data))
+        .on('end', () => {
 
-        transactions = data.split("\n");
-        transactions.shift(); //Removes the headers
 
-        for(let x=0; x<transactions.length;x++){
-            transactions[x]=transactions[x].replace("\r", "");
-            transactions[x] = transactions[x].split(",");
-        }
-        createAccounts(transactions);
-        createTransactions(transactions);
+            createAccounts(transactions);
+            createTransactions(transactions);
 
-        fs.readFile('Transactions2013.json', 'utf-8', (err, data) => {
-            console.log("Reading JSON");
-            if (err) {
-                console.error(err);
-                logger.fatal("Error reading file!")
-                return;
-            }
-            const object = JSON.parse(data);
-            createAccounts(object)
+            fs.readFile('Transactions2013.json', 'utf-8', (err, data) => {
+                console.log("Reading JSON");
+                if (err) {
+                    console.error(err);
+                    logger.fatal("Error reading file!")
+                    return;
+                }
+                const object = JSON.parse(data);
+                // createAccounts(object)
 
-            // main();
-        })
+                // main();
+            })
 
 
 
     });
+    console.log(transactions);
 }
 
 function createAccounts(transactions){
-    if(!Array.isArray(transactions)){
-        console.log("Its a JSON")
-    }
-    else {
-        console.log("Its a Array")
         let names = transactions.map(line => {
-            return [line[1], line[2]];
+            return [line.From, line.To];
         })
+
 
         for (let i = 0; i < names.length; i++) {
             for (let x = 0; x < names[i].length; x++) {
@@ -76,7 +65,7 @@ function createAccounts(transactions){
                 }
             }
         }
-    }
+
 }
 
 function findAccount(name){
@@ -91,21 +80,22 @@ function createTransactions(transactions){
 
     transactions.map(transaction => {
         try{
-            if(transaction.length != 5) throw "Incorrect Number of Inputs";
-            let sender : Account | false = findAccount(transaction[1]);
-            let recipient : Account | false = findAccount(transaction[2]);
-            if(isNaN(Number(transaction[4]))) throw "Invalid Price Entered"
-            let price : number = Number(transaction[4]);
+
+            if(Object.keys(transaction).length != 5) throw "Incorrect Number of Inputs";
+            let sender : Account | false = findAccount(transaction.From);
+            let recipient : Account | false = findAccount(transaction.To);
+            if(isNaN(Number(transaction.Amount))) throw "Invalid Price Entered"
+            let price : number = Number(transaction.amount);
             if(!sender || !recipient) {console.log("Invalid Accounts")
-                logger.warn("Transaction made with non-existing accounts. Accounts: "+transaction[1].concat(transaction[2]))}
+                logger.warn("Transaction made with non-existing accounts. Accounts: "+transaction.From.concat(transaction.To))}
             else {
                 sender.changeBalance((price * -1));
                 recipient.changeBalance(price);
-                logger.debug("Transaction Created with info: " + transaction)
-                Transactions.push(new Transaction(transaction[0], sender, recipient, transaction[3], price));
+                logger.debug("Transaction Created with info: " + JSON.stringify(transaction));
+                Transactions.push(new Transaction(transaction.Date, sender, recipient, transaction.Narrative, price));
             }
         }catch(error){
-            logger.error("Transaction failed with error "+error);
+            logger.error("Transaction failed with error "+error+": "+transaction.Amount);
         }
     })
 }
