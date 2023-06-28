@@ -19,35 +19,33 @@ log4js.configure({
 const logger = log4js.getLogger("SupportBank.ts");
 logger.debug("\n\n\nDebugging SupportBank")
 
-function supportBank() {
-
+async function supportBank(val) {
     const transactions=[];
-    fs.createReadStream('DoggyTransactions2014.csv')
-        .pipe(csv())
-        .on('data', (data) => transactions.push(data))
-        .on('end', () => {
+    if(val.split('.').pop() === "csv"){
+        fs.createReadStream('DoggyTransactions2014.csv')
+            .pipe(csv())
+            .on('data', (data) => transactions.push(data))
+            .on('end', () => {
 
 
-            createAccounts(transactions);
-            createTransactions(transactions);
-
-            fs.readFile('Transactions2013.json', 'utf-8', (err, data) => {
-                console.log("Reading JSON");
-                if (err) {
-                    console.error(err);
-                    logger.fatal("Error reading file!")
-                    return;
-                }
-                const object = JSON.parse(data);
-                // createAccounts(object)
-
-                // main();
+                createAccounts(transactions);
+                createTransactions(transactions);
             })
+    }else{
+        fs.readFile('Transactions2013.json', 'utf-8', (err, data) => {
+            console.log("Reading JSON");
+            if (err) {
+                console.error(err);
+                logger.fatal("Error reading file!")
+                return;
+            }
+            const object = JSON.parse(data);
+            createAccounts(object)
+            createTransactions(object);
 
-
-
-    });
-    console.log(transactions);
+            main();
+        })
+    }
 }
 
 function createAccounts(transactions){
@@ -85,7 +83,7 @@ function createTransactions(transactions){
             let sender : Account | false = findAccount(transaction.From);
             let recipient : Account | false = findAccount(transaction.To);
             if(isNaN(Number(transaction.Amount))) throw "Invalid Price Entered"
-            let price : number = Number(transaction.amount);
+            let price : number = Number(transaction.Amount);
             if(!sender || !recipient) {console.log("Invalid Accounts")
                 logger.warn("Transaction made with non-existing accounts. Accounts: "+transaction.From.concat(transaction.To))}
             else {
@@ -145,4 +143,10 @@ function main(){
 
 }
 
-supportBank();
+
+
+process.argv.forEach(async function (val) {
+    console.log(val)
+    await supportBank(val);
+})
+// main();
