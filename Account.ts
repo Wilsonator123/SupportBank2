@@ -2,7 +2,7 @@
 export default class Account {
     private readonly name: string;
     private balance: string = "";
-    constructor(name) {
+    constructor(name: string) {
         this.name = name;
         this.balance = "0.00";
     }

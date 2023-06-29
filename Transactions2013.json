@@ -1,11 +1,7 @@
 [
   {
     "Date": "2013-01-01T00:00:00",
-<<<<<<< HEAD
     "From": "Jon A",
-=======
-    "FromAmount": "Jon A",
->>>>>>> a7acba0a70af119491f02336962340e0b36bef12
     "To": "Gergana I",
     "Narrative": "Sandbox Help",
     "Amount": 2.14

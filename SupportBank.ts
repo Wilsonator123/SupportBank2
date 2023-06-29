@@ -3,6 +3,7 @@ const prompt = require("prompt-sync")();
 const csv = require('csv-parser');
 import Account from "./Account"
 import Transaction from "./Transaction"
+import {TransactionJSON} from "./TransactionJSON";
 const log4js = require("log4js");
 const Accounts : Account[] = [];
 const Transactions : Transaction[] = []
@@ -19,20 +20,21 @@ log4js.configure({
 const logger = log4js.getLogger("SupportBank.ts");
 logger.debug("\n\n\nDebugging SupportBank")
 
-async function supportBank(val) {
-    const transactions=[];
-    if(val.split('.').pop() === "csv"){
-        fs.createReadStream('DoggyTransactions2014.csv')
+async function supportBank(fileName: string){
+    const transactions: Array<TransactionJSON> =[];
+    if(fileName.split('.').pop() === "csv"){
+        fs.createReadStream(fileName+'.csv')
             .pipe(csv())
-            .on('data', (data) => transactions.push(data))
+            .on('data', (data: TransactionJSON) => transactions.push(data))
             .on('end', () => {
 
 
                 createAccounts(transactions);
                 createTransactions(transactions);
+                main();
             })
     }else{
-        fs.readFile('Transactions2013.json', 'utf-8', (err, data) => {
+        fs.readFile(fileName+'.json', 'utf-8', (err, data) => {
             console.log("Reading JSON");
             if (err) {
                 console.error(err);
@@ -48,7 +50,7 @@ async function supportBank(val) {
     }
 }
 
-function createAccounts(transactions){
+function createAccounts(transactions: Array<TransactionJSON>){
         let names = transactions.map(line => {
             return [line.From, line.To];
         })
@@ -66,7 +68,7 @@ function createAccounts(transactions){
 
 }
 
-function findAccount(name){
+function findAccount(name: string){
     //Use this to parse in a name, and it will search and return the account or false if not exists
     for(let x = 0; x<Accounts.length;x++) {
         if (Accounts[x].getName() === name) return Accounts[x];
@@ -74,7 +76,7 @@ function findAccount(name){
     return false;
 }
 
-function createTransactions(transactions){
+function createTransactions(transactions: Array<TransactionJSON>){
 
     transactions.map(transaction => {
         try{
@@ -103,7 +105,7 @@ function listAll(){
     for(let x in Accounts) console.log(Accounts[x].toString());
 }
 
-function list(usrInput){
+function list(usrInput: any){
     usrInput = usrInput.split(",");
     usrInput.shift();
     let name = usrInput.join(" ");
@@ -146,8 +148,6 @@ function main(){
 
 
 process.argv.forEach(async function (val, index) {
-    console.log(val)
-    if(index>=2)
-    await supportBank(val);
+    if(index===2) await supportBank(val);
 })
 // main();
